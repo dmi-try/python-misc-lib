@@ -151,7 +151,7 @@ def hack_keycloak_cookies(url, auth_data):
         st = os.stat(selenium_dir / 'chromedriver')
         os.chmod(selenium_dir / 'chromedriver', st.st_mode | stat.S_IEXEC)
         driver = webdriver.Chrome(options=chrome_options)
-            
+
     driver.get(url)
     if driver.current_url.startswith('https://keycloak.'):
         driver.find_element(By.ID, "username").send_keys(auth_data['username'])
@@ -162,7 +162,11 @@ def hack_keycloak_cookies(url, auth_data):
 
 
 def data_to_df(data, column_name_field=None, raw_data=False):
-    df_result = pd.DataFrame()
+    def serialize_data(data, name):
+        (i, d) = zip(*data)
+        return pd.Series(pd.to_numeric(d), index=pd.to_datetime(pd.to_numeric(i) * 1000 ** 3), name=name)
+
+    columns_data = []
     df_metric = pd.DataFrame()
 
     if data['status'] == 'success':
@@ -176,11 +180,7 @@ def data_to_df(data, column_name_field=None, raw_data=False):
                     except KeyError:
                         print(c['metric'].keys())
                         raise
-                df = pd.DataFrame(c['value']).T
-                df[0] = pd.to_datetime((df[0])*1000**3)
-                df[1] = pd.to_numeric(df[1])
-                df = df.set_index(0)
-                df_result[column_name] = df[1]
+                columns_data.append(serialize_data([c['value']], name=column_name))
                 if raw_data:
                     df_metric[column_name] = pd.Series(c['metric'])
         if data['data']['resultType'] == 'matrix':
@@ -193,13 +193,10 @@ def data_to_df(data, column_name_field=None, raw_data=False):
                     except KeyError:
                         print("Not found metric {} in {}, using 'result'".format(column_name_field, c['metric'].keys()))
                         column_name = 'result'
-                df = pd.DataFrame(c['values'])
-                df[0] = pd.to_datetime(df[0]*1000**3)
-                df[1] = pd.to_numeric(df[1])
-                df = df.set_index(0)
-                df_result[column_name] = df[1]
+                columns_data.append(serialize_data(c['values'], column_name))
                 if raw_data:
                     df_metric[column_name] = pd.Series(c['metric'])
+    df_result = pd.DataFrame(columns_data).T
     if raw_data:
         return [df_result, df_metric]
     return df_result
@@ -218,7 +215,7 @@ def get_metrics(cloud):
     url = metrics_tmpl.format(url=auth_data[cloud]['url'])
     data = request_data(cloud, url)
     return data
-    
+
 
 def get_dates(dates_range='1w', dates_steps=7, dates_end='now'):
     date_end = pd.Timestamp(dates_end)
