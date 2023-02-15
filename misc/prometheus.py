@@ -24,7 +24,7 @@ metrics_tmpl = "{url}/api/v1/label/__name__/values"
 def dates_range(period='1w', step='1h', start=None):
     if start is None:
         start = pd.Timestamp('now') - pd.Timedelta(period)
-    return {'period': period, 'step': step, 'start': start}
+    return {'period': pd.Timedelta(period), 'step': pd.Timedelta(step), 'start': pd.Timestamp(start)}
 
 
 def request_data(cloud, url):
@@ -51,7 +51,7 @@ def q(query, cloud, period=None, step='1h', start=None, output_format='json', me
             step = period['step']
             period = period['period']
         if start:
-            date_start = start
+            date_start = pd.Timestamp(start)
         else:
             date_start = pd.Timestamp('now') - pd.Timedelta(period)
         date_end = date_start + pd.Timedelta(period)
@@ -70,38 +70,6 @@ def q(query, cloud, period=None, step='1h', start=None, output_format='json', me
     if output_format == 'df':
         return data_to_df(data, column_name_field=metric)
     raise "Unknown output format"
-
-
-def qr2_depr(query, cloud, dates_range, output_format='json', metric=None):
-    return q(
-        query, cloud,
-        dates_range['period'], dates_range['step'], dates_range['start'],
-        output_format=output_format, metric=metric
-    )
-
-
-def qr_depr(query, start, end, step, cloud="us"):
-    print("Function qr deprecated, use qr2")
-    url = query_range_tmpl.format(
-        url=auth_data[cloud]['url'], q=urllib.parse.quote(query),
-        start=pd.Timestamp(start).timestamp(),
-        end=pd.Timestamp(end).timestamp(),
-        step=pd.Timedelta(step).total_seconds()
-    )
-    if api_debug:
-        print(url)
-    r = requests.get(url, verify=auth_data[cloud]['verify_cert'])
-    if r.url.startswith('https://keycloak'):
-        hack_url = query_range_tmpl.format(
-            url=auth_data[cloud]['url'], q=urllib.parse.quote('1'),
-            start=pd.Timestamp(start).timestamp(),
-            end=pd.Timestamp(end).timestamp(),
-            step=pd.Timedelta(step).total_seconds()
-        )
-        api_cookies[cloud] = hack_keycloak_cookies(hack_url, auth_data[cloud]['keystone_auth'])
-        r = requests.get(url, headers={'cookie': api_cookies[cloud]}, verify=auth_data[cloud]['verify_cert'])
-    data = json.loads(r.content)
-    return data
 
 
 def hack_keycloak_cookies(url, auth_data):
@@ -215,13 +183,6 @@ def get_metrics(cloud):
     url = metrics_tmpl.format(url=auth_data[cloud]['url'])
     data = request_data(cloud, url)
     return data
-
-
-def get_dates(dates_range='1w', dates_steps=7, dates_end='now'):
-    date_end = pd.Timestamp(dates_end)
-    date_start = date_end - pd.Timedelta(dates_range)
-    date_step = (date_end - date_start) / dates_steps
-    return [date_start, date_end, date_step]
 
 
 QUERIES = {
