@@ -94,6 +94,7 @@ def hack_keycloak_cookies(url, auth_data):
     # chrome_options.add_argument("--use-fake-ui-for-media-stream")
     # chrome_options.add_argument("--use-fake-device-for-media-stream")
     chrome_options.add_argument("--disable-sync")
+    chrome_options.add_argument('ignore-certificate-errors')
 
     if selenium_dir not in sys.path:
         sys.path.append(str(selenium_dir))
