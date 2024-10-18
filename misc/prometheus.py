@@ -43,6 +43,7 @@ def request_data(cloud, url):
         }
         keycloak_resp = requests.post(keycloak_url, data=data)
         token = json.loads(keycloak_resp.content)['access_token']
+        auth_tokens[cloud] = token
         r = requests.get(url, headers={"Authorization": f"Bearer {token}"})
     return json.loads(r.content)
 
